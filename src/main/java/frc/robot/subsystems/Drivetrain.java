@@ -12,6 +12,7 @@ import com.revrobotics.CANSparkMax;
 import com.revrobotics.RelativeEncoder;
 
 import edu.wpi.first.math.estimator.DifferentialDrivePoseEstimator;
+import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.DifferentialDriveKinematics;
@@ -32,6 +33,9 @@ public class Drivetrain extends SubsystemBase {
   DifferentialDriveKinematics m_driveKinematics;
   DifferentialDrivePoseEstimator m_driveOdometry;
 
+  private final SlewRateLimiter limitingacceleration1 = new SlewRateLimiter(3);
+  private final SlewRateLimiter limitingacceleration2 = new SlewRateLimiter(3);
+  private final SlewRateLimiter limitingacceleration3 = new SlewRateLimiter(3);
   CANSparkMax leftMotor = new CANSparkMax(DrivetrainConstants.MOTOR_LEFT_ID, MotorType.kBrushless);
   CANSparkMax rightMotor = new CANSparkMax(DrivetrainConstants.MOTOR_RIGHT_ID, MotorType.kBrushless);
   private RelativeEncoder leftMotorEncoder = leftMotor.getEncoder();
@@ -75,25 +79,36 @@ public class Drivetrain extends SubsystemBase {
     return m_driveOdometry.getEstimatedPosition();
   }
   
-  public Command drive(DoubleSupplier leftY, DoubleSupplier rightX, DoubleSupplier rightY, Supplier<String> driveType) {
+  public Command drive(DoubleSupplier leftY, DoubleSupplier rightX, DoubleSupplier rightY, Supplier<String> driveType, boolean smooth) {
     return Commands.run(() -> {
+
+      double fish = leftY.getAsDouble();
+      double fishes = rightX.getAsDouble();
+      double fisheses = rightY.getAsDouble();
+      
+      if (smooth) {
+        fish = limitingacceleration1.calculate(leftY.getAsDouble());
+        fishes = limitingacceleration2.calculate(rightX.getAsDouble());
+        fisheses = limitingacceleration3.calculate(rightY.getAsDouble());
+      }
+      
       switch (driveType.get()) {
         case "arcadeDrive":
-          m_differentialDrive.arcadeDrive(leftY.getAsDouble(), rightX.getAsDouble());
+          m_differentialDrive.arcadeDrive(fish, fishes);
           break;
         case "tankDrive":
-          m_differentialDrive.tankDrive(leftY.getAsDouble(), rightY.getAsDouble());
+          m_differentialDrive.tankDrive(fish, fisheses);
           break;
         case "curvatureDrive1":
-          m_differentialDrive.curvatureDrive(leftY.getAsDouble(), rightX.getAsDouble(), false);
+          m_differentialDrive.curvatureDrive(fish, fishes, false);
           break;
         case "curvatureDrive2":
-          m_differentialDrive.curvatureDrive(leftY.getAsDouble(), rightX.getAsDouble(), true);
+          m_differentialDrive.curvatureDrive(fish, fishes, true);
           break;
       }
-      SmartDashboard.putNumber("Controller Left Y", leftY.getAsDouble());
-      SmartDashboard.putNumber("Controller Right X", rightX.getAsDouble());
-      SmartDashboard.putNumber("Controller Right Y", rightY.getAsDouble());
+      SmartDashboard.putNumber("Controller Left Y", fish);
+      SmartDashboard.putNumber("Controller Right X", fishes);
+      SmartDashboard.putNumber("Controller Right Y", fisheses);
       SmartDashboard.putString("Selected Drive Type", driveType.get());
     }, this);
   }

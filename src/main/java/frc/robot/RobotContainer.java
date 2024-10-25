@@ -1,5 +1,8 @@
 package frc.robot;
 
+import java.util.function.DoubleSupplier;
+
+import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -15,10 +18,12 @@ public class RobotContainer {
             new CommandXboxController(OperatorConstants.DRIVER_CONTROLLER);
     private final CommandXboxController m_operatorController =
             new CommandXboxController(OperatorConstants.OPERATOR_CONTROLLER);
+    
+
+    SendableChooser<String> m_driveSendableChooser = new SendableChooser<String>();
 
     public RobotContainer() {
         // Allows choosing of the drive type trhough SmartDashboard
-        SendableChooser<String> m_driveSendableChooser = new SendableChooser<String>();
         m_driveSendableChooser.setDefaultOption("arcadeDrive",  "arcadeDrive");
         m_driveSendableChooser.addOption("tankDrive", "tankDrive");
         m_driveSendableChooser.addOption("curvatureDrive1", "curvatureDrive1");
@@ -29,7 +34,8 @@ public class RobotContainer {
                 m_driverController::getLeftY,
                 m_driverController::getRightX,
                 m_driverController::getRightY,
-                m_driveSendableChooser::getSelected
+                m_driveSendableChooser::getSelected,
+                true
         ));
 
         configureBindings();
@@ -37,8 +43,17 @@ public class RobotContainer {
 
     private void configureBindings() {
         m_driverController.a().onTrue(Commands.runOnce(() -> m_Drivetrain.resetOdometry()));
-    }
 
+        m_driverController.b().whileTrue(m_Drivetrain.drive(
+                m_driverController::getLeftY,
+                m_driverController::getRightX,
+                m_driverController::getRightY,
+                m_driveSendableChooser::getSelected,
+                false
+        ));
+    }
+    
+    
     public Command getAutonomousCommand() {
         return null;
     }
